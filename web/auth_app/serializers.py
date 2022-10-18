@@ -31,7 +31,7 @@ class UserSignUpSerializer(serializers.Serializer):
         return password
 
     def validate_email(self, email: str) -> str:
-        if "email_address_exists(email)":
+        if AuthAppService.is_email_exists(email=email):
             raise serializers.ValidationError(_("User is already registered with this e-mail address."))
         return email
 

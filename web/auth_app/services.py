@@ -26,6 +26,10 @@ class AuthAppService:
     def get_user(email):
         return User.objects.get(email=email)
 
+    @staticmethod
+    def is_email_exists(email: str) -> bool:
+        return User.objects.filter(email=email).exists()
+
 
 def full_logout(request):
     response = Response({"detail": _("Successfully logged out.")}, status=HTTP_200_OK)
