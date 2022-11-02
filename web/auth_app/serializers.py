@@ -47,7 +47,7 @@ class UserSignUpSerializer(serializers.Serializer):
         if self.validated_data.get('captcha'):
             del self.validated_data['captcha']
         user = User.objects.create(**self.validated_data, is_active=False)
-        # CeleryService.send_email_confirm(user)
+        CeleryService.send_email_confirm(user, request)
         return user
 
 
@@ -93,4 +93,4 @@ class PasswordResetConfirmSerializer(auth_serializers.PasswordResetConfirmSerial
 
 
 class VerifyEmailSerializer(serializers.Serializer):
-    key = serializers.CharField()
+    pass

@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from main.views import TemplateAPIView
 
 from . import views
+from .views import VerifyAccountEmailView
 
 app_name = 'auth_app'
 
@@ -30,5 +31,5 @@ urlpatterns += [
     path('register/', TemplateAPIView.as_view(template_name='auth_app/sign_up.html'), name='sign_up'),
     path('password-recovery/', TemplateAPIView.as_view(template_name=''), name='password_recovery'),
     path('password-reset/confirm/', TemplateView.as_view(), name='password_reset_confirm'),
-    path('verify-email/', TemplateView.as_view(), name='account_verification'),
+    path('verify-email/<slug:signed_uid_b64>', VerifyAccountEmailView.as_view(), name='account_verification'),
 ]

@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,6 +8,9 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED, HTTP_500_INTERNAL_SERVER_ERROR
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.http import urlsafe_base64_decode
+from django.core.signing import TimestampSigner
+from django.utils.encoding import force_str
 
 from main.decorators import except_shell
 
@@ -27,8 +31,18 @@ class AuthAppService:
         return User.objects.get(email=email)
 
     @staticmethod
+    @except_shell((User.DoesNotExist,))
+    def get_user_by_id(pk):
+        return User.objects.get(pk=pk)
+
+    @staticmethod
     def is_email_exists(email: str) -> bool:
         return User.objects.filter(email=email).exists()
+
+    @staticmethod
+    def set_user_active(user: User):
+        user.is_active = True
+        user.save()
 
 
 def full_logout(request):
@@ -68,3 +82,12 @@ def full_logout(request):
         response.data = {"detail": message}
         response.status_code = HTTP_200_OK
     return response
+
+
+class EmailVerificationService:
+    @staticmethod
+    def get_user_by_signed_uid(signed_uid_b64):
+        unsigned_uid = force_str(urlsafe_base64_decode(signed_uid_b64))
+        signer = TimestampSigner()
+        uid = signer.unsign(unsigned_uid, max_age=timedelta(hours=2))
+        return AuthAppService.get_user_by_id(uid)

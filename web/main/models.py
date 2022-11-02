@@ -13,7 +13,6 @@ class User(AbstractUser):
 
     username = None  # type: ignore
     email = models.EmailField(_('Email address'), unique=True)
-
     USERNAME_FIELD: str = 'email'
     REQUIRED_FIELDS: list[str] = []
 

@@ -11,6 +11,7 @@ from .additional_settings.logging_settings import *
 from .additional_settings.smtp_settings import *
 from .additional_settings.summernote_settings import *
 from .additional_settings.swagger_settings import *
+from django.contrib import messages
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -107,7 +108,6 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',),
 }
 
-
 ROOT_URLCONF = 'src.urls'
 
 LOGIN_URL = 'rest_framework:login'
@@ -194,7 +194,6 @@ CSRF_COOKIE_NAME = 'csrftoken'
 
 ROSETTA_SHOW_AT_ADMIN_PANEL = DEBUG
 
-
 if (SENTRY_DSN := os.environ.get('SENTRY_DSN')) and ENABLE_SENTRY:
     # More information on site https://sentry.io/
     from sentry_sdk import init
@@ -220,3 +219,8 @@ if (SENTRY_DSN := os.environ.get('SENTRY_DSN')) and ENABLE_SENTRY:
         send_default_pii=True,
     )
 
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+    messages.SUCCESS: 'success',
+    messages.INFO: 'info'
+}

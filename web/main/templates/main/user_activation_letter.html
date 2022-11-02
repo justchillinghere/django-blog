@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Please verify your email</title>
+</head>
+<body>
+  <p>
+    Hello, {{ user }}! Thank you for registration in my blog. Please verify your email using this link:
+
+    <form action="{{ activate_url }}" method="post" target="_blank">
+      <input type="hidden">
+      <button type="submit">
+        Activate account
+      </button>
+  </form>
+  </p>
+</body>
+</html>
