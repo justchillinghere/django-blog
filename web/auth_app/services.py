@@ -1,18 +1,26 @@
 import re
 from datetime import timedelta
+from typing import Optional
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from jwt import PyJWKClient
+import jwt
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED, HTTP_500_INTERNAL_SERVER_ERROR
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.utils.http import urlsafe_base64_decode
+import requests
 from django.core.signing import TimestampSigner
-from django.utils.encoding import force_str
+from django.urls import reverse
+from django.conf import settings
+from urllib.parse import urljoin
+from . import utils
 
 from main.decorators import except_shell
+from main import tasks
+from django.http import HttpResponseRedirect, QueryDict
 
 User = get_user_model()
 
@@ -84,10 +92,108 @@ def full_logout(request):
     return response
 
 
-class EmailVerificationService:
-    @staticmethod
-    def get_user_by_signed_uid(signed_uid_b64):
-        unsigned_uid = force_str(urlsafe_base64_decode(signed_uid_b64))
+class UserActivationEmailService:
+    def __init__(self, user: User):
+        self.user = user
+        self.signed_uid = self.sign_uid()
+        self.user_activation_url = self.create_user_activation_url()
+
+    def sign_uid(self) -> str:
+        uid = self.user.pk
         signer = TimestampSigner()
-        uid = signer.unsign(unsigned_uid, max_age=timedelta(hours=2))
-        return AuthAppService.get_user_by_id(uid)
+        return signer.sign(uid)
+
+    def create_user_activation_url(self) -> str:
+        """
+        Gets user's uid, encodes it to b64 and creates activation link
+        """
+        signed_uid_b64: str = utils.encode_to_b64(self.signed_uid)
+        link = reverse('auth_app:account_verification', kwargs={'signed_uid_b64': signed_uid_b64})
+        return urljoin(settings.FRONTEND_URL, link)
+
+    def make_activation_email_headers(self):
+        return {
+            'to_email': self.user.email,
+            'subject': 'Registration confirmation',
+            'template_name': 'auth_app/user_activation_letter.html',
+            'context': {'user': self.user.get_full_name(), 'activate_url': self.user_activation_url},
+        }
+
+
+class ActivateUserByURLService:
+    def __init__(self, signed_uid_b64):
+        self.signed_uid = self.decode_signed_uid_from_b64(signed_uid_b64)
+
+    @staticmethod
+    def decode_signed_uid_from_b64(value) -> str:
+        return utils.decode_from_b64(value)
+
+    def unsign_uid(self, max_age=timedelta(hours=2)) -> int:
+        signer = TimestampSigner()
+        uid = signer.unsign(self.signed_uid, max_age=max_age)
+        return uid
+
+
+class CaptchaValidator:
+    @staticmethod
+    def validate_grecaptcha(token) -> bool:
+        arguments = {'secret': settings.RECAPTCHA_SECRET_KEY, 'response': token}
+        r = requests.post('https://www.google.com/recaptcha/api/siteverify', arguments)
+        result = r.json()
+        return result['success']
+
+
+class CeleryService:
+    @staticmethod
+    def send_activation_email(user: User):
+        activation_email_utils = UserActivationEmailService(user)
+        email_headers = activation_email_utils.make_activation_email_headers()
+        tasks.send_information_email.delay(**email_headers)
+
+
+class GoogleAuthFunctions:
+    OIDC_CONFIG = {
+        "issuer": "https://accounts.google.com",
+        "authorization_endpoint": "https://accounts.google.com/o/oauth2/auth",
+        "token_endpoint": "https://oauth2.googleapis.com/token",
+        "userinfo_endpoint": "https://openidconnect.googleapis.com/v1/userinfo",
+        "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+    }
+    OIDC_CLIENT_ID = settings.GOOGLE_OIDC_CLIENT_ID
+    OIDC_CLIENT_SECRET = settings.GOOGLE_OIDC_CLIENT_SECRET
+    OIDC_REDIRECT_URI = settings.GOOGLE_OIDC_REDIRECT_URI
+    OIDC_SCOPE = "openid profile email"
+
+    def google_redirect(self):
+        query = QueryDict(mutable=True)
+        query["response_type"] = "code"
+        query["client_id"] = self.OIDC_CLIENT_ID
+        query["redirect_uri"] = self.OIDC_REDIRECT_URI
+        query["scope"] = self.OIDC_SCOPE
+        q = query.urlencode()
+        return HttpResponseRedirect("https://accounts.google.com/o/oauth2/v2/auth" + "?" + q)
+
+    def get_tokens(self, authorization_code):
+        header = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            "code": authorization_code,
+            "client_id": self.OIDC_CLIENT_ID,
+            "client_secret": self.OIDC_CLIENT_SECRET,
+            "redirect_uri": self.OIDC_REDIRECT_URI,
+            "grant_type": "authorization_code"
+        }
+        response = requests.post(self.OIDC_CONFIG["token_endpoint"], headers=header, data=data)
+        if response.ok:
+            return response.json()
+        return None
+
+    def validate_token(self, token_data):
+        id_token = token_data["id_token"]
+        jwks_client = PyJWKClient(self.OIDC_CONFIG["jwks_uri"])
+        signing_key = jwks_client.get_signing_key_from_jwt(id_token)
+        try:
+            return jwt.decode(id_token, signing_key.key, algorithms=["RS256"], audience=self.OIDC_CLIENT_ID,
+                              issuer=self.OIDC_CONFIG["issuer"])
+        except jwt.DecodeError:
+            return None
+

@@ -5,10 +5,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from main.services import CeleryService
-
 from .forms import PassResetForm
-from .services import AuthAppService
+from .services import AuthAppService, CaptchaValidator, CeleryService
 
 User = get_user_model()
 
@@ -25,6 +23,7 @@ class UserSignUpSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password1 = serializers.CharField(write_only=True, min_length=8)
     password2 = serializers.CharField(write_only=True, min_length=8)
+    captcha = serializers.CharField(required=True, write_only=True, min_length=2, max_length=1000)
 
     def validate_password1(self, password: str):
         validate_password(password)
@@ -38,16 +37,18 @@ class UserSignUpSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password1'] != data['password2']:
             raise serializers.ValidationError({'password2': _("The two password fields didn't match.")})
+        if not CaptchaValidator.validate_grecaptcha(data['captcha']):
+            raise serializers.ValidationError(_('The captcha is not valid'))
         return data
 
     def save(self, **kwargs):
-        request = self.context.get('request')
         self.validated_data['password'] = make_password(self.validated_data.pop('password1'))
+
         del self.validated_data['password2']
-        if self.validated_data.get('captcha'):
-            del self.validated_data['captcha']
+        del self.validated_data['captcha']
+
         user = User.objects.create(**self.validated_data, is_active=False)
-        CeleryService.send_email_confirm(user, request)
+        CeleryService.send_activation_email(user)
         return user
 
 

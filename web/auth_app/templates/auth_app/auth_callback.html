@@ -1,0 +1,14 @@
+{% extends 'auth_app/base.html'%}
+{% load static i18n %}
+
+{% block head %}
+
+{% endblock head %}
+
+{% block container %}
+Wait please
+{% endblock container %}
+
+{% block jquery %}
+$.getScript('{% static 'auth_app/js/auth_callback.js' %}');
+{% endblock %}

@@ -16,7 +16,7 @@ class ViewsTest(APITestCase):
         }
     )
     def test_set_timezone(self):
-        test_timezone = 'Europe/Kiev'
+        test_timezone = 'Asia/Bangkok'
         user = User.objects.get(email=settings.SUPERUSER_EMAIL)
 
         self.client.force_login(user)
@@ -32,3 +32,5 @@ class ViewsTest(APITestCase):
         # Request need to activate timezone after set cookies
         self.client.get('/')
         self.assertEqual(timezone.get_current_timezone_name(), test_timezone)
+
+

@@ -2,6 +2,7 @@ from time import sleep
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from main import decorators
 
@@ -40,8 +41,7 @@ class DecoratorTest(TestCase):
         test_user = self.get_user(email='test111@test.com')
         self.assertEqual(test_user, self.user)
         self.assertEqual(test_user.email, self.user.email)
-        non_exist = self.get_user(email='non_exist_user@test.com')
-        self.assertEqual(non_exist, None)
+        self.assertEqual(self.get_user(email='non_exist_user@test.com'), None)
 
     def test_execution_time(self):
         data = self.time_measure_console()

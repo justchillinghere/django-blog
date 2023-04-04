@@ -1,3 +1,9 @@
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_str, force_bytes
+from rest_framework import status
+from rest_framework.response import Response
+
+
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
@@ -5,3 +11,16 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+def encode_to_b64(value):
+    return urlsafe_base64_encode(force_bytes(value))
+
+
+def decode_from_b64(value_b64):
+    return force_str(urlsafe_base64_decode(value_b64))
+
+
+def check_value_or_return_response(value, message, status_code=status.HTTP_400_BAD_REQUEST):
+    if not value:
+        return Response({"message": message}, status=status_code)

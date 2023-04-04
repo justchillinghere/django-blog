@@ -1,6 +1,9 @@
 from typing import Any
 
+
 from django.utils.translation import get_language_from_request
+
+from main.models import User
 
 
 def parse_str_with_space(var: str) -> str:

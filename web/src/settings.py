@@ -224,3 +224,11 @@ MESSAGE_TAGS = {
     messages.SUCCESS: 'success',
     messages.INFO: 'info'
 }
+
+RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '6LccY-QiAAAAAOcoXk1fyjGWxzBDF5Rr_2YP-GQ1')
+RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY', '6LccY-QiAAAAAAuGXPe03W5f3MyL3OE-4XXFPT-r')
+
+GOOGLE_OIDC_CLIENT_ID = '316996905724-h4dsqlh317e0sl58p672ov721scl021f.apps.googleusercontent.com'
+GOOGLE_OIDC_CLIENT_SECRET = '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'
+GOOGLE_OIDC_REDIRECT_URI = "http://127.0.0.1:8008/auth/oauth/google/callback"
+

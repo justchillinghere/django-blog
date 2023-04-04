@@ -24,3 +24,4 @@ build
 *.mo
 coverage.xml
 modules.txt
+.DS_Store

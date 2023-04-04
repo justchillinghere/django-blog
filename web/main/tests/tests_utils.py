@@ -1,7 +1,10 @@
 from django.test import TestCase, override_settings
 from django.test.client import RequestFactory
+from django.contrib.auth import get_user_model
 
 from main import utils
+
+User = get_user_model()
 
 
 class UtilsTestCase(TestCase):
@@ -60,3 +63,5 @@ class UtilsTestCase(TestCase):
         self.assertEqual(utils.get_supported_user_language(request), 'uk')
         request.META['HTTP_ACCEPT_LANGUAGE'] = 'ru;q=0.9,en-US;q=0.8,en;q=0.7,ru-RU;q=0.6'
         self.assertEqual(utils.get_supported_user_language(request), 'en')
+
+
