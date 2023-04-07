@@ -49,5 +49,10 @@ django-summernote==0.8.20.0
 django-taggit==3.0.0
 
 # Social Services auth
-django-allauth
 pyjwt
+jwcrypto
+
+# Tests
+pytest==7.2.2
+requests-mock
+pytest-django

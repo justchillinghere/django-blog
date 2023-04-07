@@ -4,9 +4,9 @@ from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
-from jwt import PyJWKClient
-import jwt
-from rest_framework import status
+import json
+from jwcrypto import jwk, jwt
+from jwcrypto.common import JWException
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED, HTTP_500_INTERNAL_SERVER_ERROR
 from rest_framework_simplejwt.exceptions import TokenError
@@ -20,7 +20,6 @@ from . import utils
 
 from main.decorators import except_shell
 from main import tasks
-from django.http import HttpResponseRedirect, QueryDict
 
 User = get_user_model()
 
@@ -164,15 +163,6 @@ class GoogleAuthFunctions:
     OIDC_REDIRECT_URI = settings.GOOGLE_OIDC_REDIRECT_URI
     OIDC_SCOPE = "openid profile email"
 
-    def google_redirect(self):
-        query = QueryDict(mutable=True)
-        query["response_type"] = "code"
-        query["client_id"] = self.OIDC_CLIENT_ID
-        query["redirect_uri"] = self.OIDC_REDIRECT_URI
-        query["scope"] = self.OIDC_SCOPE
-        q = query.urlencode()
-        return HttpResponseRedirect("https://accounts.google.com/o/oauth2/v2/auth" + "?" + q)
-
     def get_tokens(self, authorization_code):
         header = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
@@ -183,17 +173,15 @@ class GoogleAuthFunctions:
             "grant_type": "authorization_code"
         }
         response = requests.post(self.OIDC_CONFIG["token_endpoint"], headers=header, data=data)
-        if response.ok:
-            return response.json()
-        return None
-
-    def validate_token(self, token_data):
-        id_token = token_data["id_token"]
-        jwks_client = PyJWKClient(self.OIDC_CONFIG["jwks_uri"])
-        signing_key = jwks_client.get_signing_key_from_jwt(id_token)
-        try:
-            return jwt.decode(id_token, signing_key.key, algorithms=["RS256"], audience=self.OIDC_CLIENT_ID,
-                              issuer=self.OIDC_CONFIG["issuer"])
-        except jwt.DecodeError:
+        if not response.ok:
             return None
+        return response.json()
+
+    def get_jwks_from_auth_server(self):
+        jwks_response = requests.get(self.OIDC_CONFIG["jwks_uri"])
+        if not jwks_response.ok:
+            return None
+        return jwk.JWKSet.from_json(jwks_response.text)
+
+
 

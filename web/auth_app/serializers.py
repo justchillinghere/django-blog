@@ -4,9 +4,12 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+from jwcrypto import jwk, jwt
+from jwcrypto.common import JWException
 
 from .forms import PassResetForm
-from .services import AuthAppService, CaptchaValidator, CeleryService
+from .services import AuthAppService, CaptchaValidator, CeleryService, GoogleAuthFunctions
+from .utils import get_jwt_claims_dict
 
 User = get_user_model()
 
@@ -75,6 +78,27 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg)
         attrs['user'] = user
         return attrs
+
+
+class GoogleTokenSerializer(serializers.Serializer):
+    id_token = serializers.CharField()
+    authorizer = GoogleAuthFunctions()
+
+    def validate(self, value: dict) -> dict:
+        """
+        Deserializes base64 encoded string containing jwt token and validates it inplace.
+        If key is correct, returns token claims dict
+        """
+        jwks: jwk.JWKSet = self.authorizer.get_jwks_from_auth_server()
+        if not jwks:
+            raise serializers.ValidationError("Failed to get JWKS from auth server")
+        jwt_obj: jwt.JWT = jwt.JWT()
+        try:
+            jwt_obj.deserialize(value.get("id_token"), jwks)
+        except JWException:
+            raise serializers.ValidationError("Failed to validate token")
+        return get_jwt_claims_dict(jwt_obj.claims)
+
 
 
 class UserSignUpWithCaptchaSerializer(UserSignUpSerializer):

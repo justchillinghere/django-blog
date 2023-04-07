@@ -2,6 +2,8 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
 from rest_framework import status
 from rest_framework.response import Response
+from jwcrypto import jwt
+import json
 
 
 def get_client_ip(request):
@@ -24,3 +26,9 @@ def decode_from_b64(value_b64):
 def check_value_or_return_response(value, message, status_code=status.HTTP_400_BAD_REQUEST):
     if not value:
         return Response({"message": message}, status=status_code)
+
+
+def get_jwt_claims_dict(valid_claims):
+    if isinstance(valid_claims, str):
+        valid_claims = json.loads(valid_claims)
+    return valid_claims

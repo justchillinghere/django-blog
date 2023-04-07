@@ -22,6 +22,7 @@ from .services import full_logout, ActivateUserByURLService, AuthAppService, Goo
 from django.conf import settings
 from django.urls import reverse
 from .utils import check_value_or_return_response
+from .serializers import GoogleTokenSerializer
 
 if TYPE_CHECKING:
     from rest_framework.request import Request
@@ -57,27 +58,25 @@ class GoogleQueryParamsView(APIView, GoogleAuthFunctions):
         return Response(query)
 
 
-class GoogleCallbackView(TemplateAPIView, GoogleAuthFunctions):
+class GoogleCallbackView(TemplateAPIView):
     permission_classes = (AllowAny,)
     template_name = 'auth_app/auth_callback.html'
+    authorizer = GoogleAuthFunctions()
+    serializer_class = GoogleTokenSerializer
 
     def post(self, request):
-        if request.user.is_authenticated:
-            return Response({"message": "User is already authenticated"})
-
         if request.session["state"] != request.query_params.get("state", ""):
-            return Response({"message": "Invalid state parameter"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"message": "Invalid state parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
-        authorization_code = request.query_params.get("code", "")
+        authorization_code = request.data["code"]
         check_value_or_return_response(authorization_code, "Authorization code not found")
 
-        token_data = self.get_tokens(authorization_code)
+        token_data = self.authorizer.get_tokens(authorization_code)
         check_value_or_return_response(token_data, "Failed to exchange auth code to token")
 
-        decoded = self.validate_token(token_data)
-        check_value_or_return_response(decoded, "Failed to decode token")
-
-        email = decoded.get("email")
+        id_token_serializer = GoogleTokenSerializer(data=token_data)
+        id_token_serializer.is_valid()
+        email = id_token_serializer.validated_data["email"]
         check_value_or_return_response(email, "Email not found in ID token claims")
         return Response({'email': email})
 

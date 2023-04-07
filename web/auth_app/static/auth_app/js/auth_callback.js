@@ -11,7 +11,7 @@ $(function() {
     },
     success: function (data) {
       console.log("success", data)
-      window.location.replace(home);
+      // window.location.replace(home);
     },
     error: function (data) {
       console.log('error', data)
