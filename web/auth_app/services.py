@@ -163,25 +163,25 @@ class GoogleAuthFunctions:
     OIDC_REDIRECT_URI = settings.GOOGLE_OIDC_REDIRECT_URI
     OIDC_SCOPE = "openid profile email"
 
-    def get_tokens(self, authorization_code):
+    @classmethod
+    def get_tokens(cls, authorization_code):
         header = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
             "code": authorization_code,
-            "client_id": self.OIDC_CLIENT_ID,
-            "client_secret": self.OIDC_CLIENT_SECRET,
-            "redirect_uri": self.OIDC_REDIRECT_URI,
+            "client_id": cls.OIDC_CLIENT_ID,
+            "client_secret": cls.OIDC_CLIENT_SECRET,
+            "redirect_uri": cls.OIDC_REDIRECT_URI,
             "grant_type": "authorization_code"
         }
-        response = requests.post(self.OIDC_CONFIG["token_endpoint"], headers=header, data=data)
+        response = requests.post(cls.OIDC_CONFIG["token_endpoint"], headers=header, data=data)
         if not response.ok:
             return None
         return response.json()
 
-    def get_jwks_from_auth_server(self):
-        jwks_response = requests.get(self.OIDC_CONFIG["jwks_uri"])
+    @classmethod
+    def get_jwks_from_auth_server(cls) -> Optional[str]:
+        jwks_response = requests.get(cls.OIDC_CONFIG["jwks_uri"])
         if not jwks_response.ok:
             return None
-        return jwk.JWKSet.from_json(jwks_response.text)
-
-
+        return jwks_response.text
 

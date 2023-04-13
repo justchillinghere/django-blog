@@ -9,7 +9,7 @@ from jwcrypto.common import JWException
 
 from .forms import PassResetForm
 from .services import AuthAppService, CaptchaValidator, CeleryService, GoogleAuthFunctions
-from .utils import get_jwt_claims_dict
+from .utils import get_jwt_claims_dict, json_to_jwk_set
 
 User = get_user_model()
 
@@ -82,19 +82,20 @@ class LoginSerializer(serializers.Serializer):
 
 class GoogleTokenSerializer(serializers.Serializer):
     id_token = serializers.CharField()
-    authorizer = GoogleAuthFunctions()
+    authorizer = GoogleAuthFunctions
 
     def validate(self, value: dict) -> dict:
         """
         Deserializes base64 encoded string containing jwt token and validates it inplace.
         If key is correct, returns token claims dict
         """
-        jwks: jwk.JWKSet = self.authorizer.get_jwks_from_auth_server()
+        jwks: jwk.JWKSet = json_to_jwk_set(self.authorizer.get_jwks_from_auth_server())
         if not jwks:
             raise serializers.ValidationError("Failed to get JWKS from auth server")
+
         jwt_obj: jwt.JWT = jwt.JWT()
         try:
-            jwt_obj.deserialize(value.get("id_token"), jwks)
+            jwt_obj.deserialize(value["id_token"], jwks)
         except JWException:
             raise serializers.ValidationError("Failed to validate token")
         return get_jwt_claims_dict(jwt_obj.claims)

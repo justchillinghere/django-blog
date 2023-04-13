@@ -2,7 +2,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
 from rest_framework import status
 from rest_framework.response import Response
-from jwcrypto import jwt
+from jwcrypto import jwt, jwk
 import json
 
 
@@ -32,3 +32,7 @@ def get_jwt_claims_dict(valid_claims):
     if isinstance(valid_claims, str):
         valid_claims = json.loads(valid_claims)
     return valid_claims
+
+
+def json_to_jwk_set(jwks_response: str) -> jwk.JWKSet:
+    return jwk.JWKSet.from_json(jwks_response)

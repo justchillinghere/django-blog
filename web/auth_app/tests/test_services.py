@@ -4,9 +4,13 @@ from django.test import TestCase
 from rest_framework.status import HTTP_200_OK, HTTP_302_FOUND
 from rest_framework.test import APITestCase
 
-from auth_app.services import UserActivationEmailService
+from auth_app.services import UserActivationEmailService, GoogleAuthFunctions
 from main.tests.test_tasks import locmem_email_backend
 from main import tasks
+from jwcrypto import jwk, jwt
+import pytest
+import requests
+import json
 
 User = get_user_model()
 
@@ -37,4 +41,38 @@ class TestUserActivationEmailService(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
 
 
+class TestGoogleOauth:
+    authenticator = GoogleAuthFunctions
 
+    def test_get_tokens(self, requests_mock):
+        test_response_data = {
+            'access_token': 'mock_access_token',
+            'expires_in': 3599,
+            'scope': '',
+            'token_type': 'Bearer',
+            'id_token': 'mock_id_token'
+        }
+        requests_mock.post(self.authenticator.OIDC_CONFIG["token_endpoint"], json=test_response_data)
+        assert test_response_data == self.authenticator.get_tokens('mock_auth_code')
+
+        requests_mock.post(self.authenticator.OIDC_CONFIG["token_endpoint"], text="Bad Request", status_code=400)
+        assert None is self.authenticator.get_tokens('mock_auth_code')
+
+    def test_get_jwks_from_auth_server(self, requests_mock):
+        test_response_data = {
+            "keys": [
+                {
+                    "n": "mock_normal",
+                    "kid": "mock_kid"
+                },
+                {
+                    "n": "mock_normal",
+                    "kid": "mock_kid",
+                }
+            ]
+        }
+        requests_mock.get(self.authenticator.OIDC_CONFIG["jwks_uri"], json=test_response_data)
+        assert json.dumps(test_response_data) == self.authenticator.get_jwks_from_auth_server()
+
+        requests_mock.get(self.authenticator.OIDC_CONFIG["jwks_uri"], text="Bad Request", status_code=400)
+        assert None is self.authenticator.get_jwks_from_auth_server()
